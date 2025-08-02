@@ -7,7 +7,7 @@
   </head>
   <body>
     <div id="topbar">
-      <form id="loginForm" action="javascript:void(0);">
+      <form id="loginForm" action="javascript:void(0);" class="row">
         <label>
           Room:
           <input name="roomId" id="roomId" required minlength="4" maxlength="32" size="12">
@@ -20,9 +20,19 @@
           Color:
           <input name="color" id="color" type="color" required value="#ff0000">
         </label>
-        <input type=submit value="(Re)connect">
+        <input type="submit" value="(Re)connect">
       </form>
+      <div class="hideUntilConnected row">
+        <form id="queueForm" action="javascript:void(0);">
+          <label>
+            Puzzle:
+            <input name="puzzleId" id="puzzleId" required minlength="4" maxlength="64" size="12">
+          </label>
+          <input type="submit" value="Queue">
+        </form>
+        <input type="button" id="puzzleSelect" value="Select Puzzle">
+      </div>
     </div>
-    <iframe id="sudokupad" src="https://sudokupad.app/"></iframe>
+    <iframe id="sudokupad" src="https://sudokupad.app/" class="hideUntilConnected"></iframe>
   </body>
 </html>

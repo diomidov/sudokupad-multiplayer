@@ -116,6 +116,14 @@ class WSClient {
   sendCloseDialog() {
     this.send({cmd: "closedialog"});
   }
+
+  sendUpdatePuzzles(puzzles) {
+    this.send({cmd: "updatepuzzles", puzzles});
+  }
+
+  sendOpenSelectDialog(puzzles=undefined) {
+    this.send({cmd: "selectpuzzle", puzzles});
+  }
 }
 
 class Bridge {
@@ -126,9 +134,11 @@ class Bridge {
       sendPointer: true,
       showPointers: true,
     };
+    this.puzzles = [];
 
     this.downstreamClient = new WSClient(roomId + "_" + userInfo.userId, userInfo, (msg) => {
       if (msg.cmd === "pointer" && !this.settings.sendPointer) return;
+      if (msg.cmd === "updatepuzzles") this.puzzles = msg.puzzles;
       if (msg.seq !== undefined) msg.seq++;
       
       if (msg.act === "ud" || msg.act === "rd") {
@@ -153,6 +163,7 @@ class Bridge {
     });
     this.upstreamClient = new WSClient(roomId, userInfo, (msg) => {
       if (msg.cmd === "pointer" && !this.settings.showPointers) return;
+      if (msg.cmd === "updatepuzzles") this.puzzles = msg.puzzles;
 
       if (isSelectionCmd(msg)) {
         // Replace selection commands with a no-op command
@@ -183,6 +194,22 @@ class Bridge {
     this.upstreamClient.disconnect();
     this.downstreamClient.disconnect();
   }
+
+  markSelections() {
+    this.upstreamClient.markSelection();
+    this.downstreamClient.markSelection();
+  }
+
+  queuePuzzle(puzzleId, puzzleTitle) {
+    this.puzzles.push([puzzleId, puzzleTitle]);
+    this.upstreamClient.sendUpdatePuzzles(this.puzzles);
+    this.downstreamClient.sendUpdatePuzzles(this.puzzles);
+  }
+
+  openSelectDialog() {
+    this.upstreamClient.sendOpenSelectDialog();
+    this.downstreamClient.sendOpenSelectDialog();
+  }
 }
 
 const blankPuzzle = {
@@ -198,8 +225,8 @@ const blankPuzzle = {
 
 async function uploadPuzzle(puzzle, shortId, format="scl") {
   try {
-    puzzle.id = shortId = streamtoolPrefix + shortId;
-    const req = { puzzle: format + JSON.stringify(puzzle), shortid: shortId };
+    puzzle.id = shortId = shortId;
+    const req = {puzzle: format + JSON.stringify(puzzle), shortid: shortId};
     const resp = await fetch(baseUrl + "admin/createlink", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
@@ -227,13 +254,27 @@ async function uploadPuzzle(puzzle, shortId, format="scl") {
   }
 }
 
+// async function loadPuzzle(puzzleId, format="scl") {
+//   try {
+//     const resp = await fetch(baseUrl + "api/puzzle/" + puzzleId);
+//     const data = await resp.text()
+//     if (!data.startsWith(format)) return null;
+//     const puzzle = data.slice(format.length);
+//     // TODO: handle the case when the puzzle is compressed
+//     return JSON.parse(decodeURIComponent(puzzle));
+//   } catch (e) {
+//     console.warn("Error loading puzzle", e);
+//     return null;
+//   }
+// }
+
 function randomUserId() {
   return "" + Math.floor(Math.random() * 1e6);
 }
 
-async function connect(roomId, userInfo, settings) {
-  await uploadPuzzle(blankPuzzle, roomId);
-  await uploadPuzzle(blankPuzzle, roomId + "_" + userInfo.userId);
+async function connect(roomId, userInfo) {
+  await uploadPuzzle(blankPuzzle, streamtoolPrefix + roomId);
+  await uploadPuzzle(blankPuzzle, streamtoolPrefix + roomId + "_" + userInfo.userId);
   if (window.bridge) window.bridge.disconnect();
   window.bridge = new Bridge(roomId, userInfo);
   const iframe = document.getElementById("sudokupad");
@@ -257,8 +298,9 @@ document.addEventListener("DOMContentLoaded", async (t) => {
     document.getElementById("name").value = userInfo.name;
     document.getElementById("color").value = userInfo.color;
     await connect(roomId, userInfo);
+    document.body.classList.add("connected");
   } catch (e) {
-    console.error("Error loading from local storage");
+    console.error("Error connecting from local storage");
   }
   document.getElementById("loginForm").addEventListener("formdata", async event => {
     const roomId = event.formData.get("roomId");
@@ -273,14 +315,30 @@ document.addEventListener("DOMContentLoaded", async (t) => {
     console.log(roomId, userInfo);
     await connect(roomId, userInfo);
   });
+  document.getElementById("queueForm").addEventListener("formdata", async event => {
+    if (window.bridge) {
+      let puzzleId = event.formData.get("puzzleId");
+      try {
+        // Try parsing it as a path
+        puzzleId = new URL(puzzleId).pathname.slice(1);
+      } catch {}
+      document.getElementById("puzzleId").value = "";
+      // const puzzle = await loadPuzzle(puzzleId);
+      window.bridge.queuePuzzle(puzzleId);
+    }
+  });
+  document.getElementById("puzzleSelect").addEventListener("click", async event => {
+    if (window.bridge) {
+      window.bridge.openSelectDialog(puzzleId);
+    }
+  });
+  window.addEventListener("beforeunload", () => {
+    if (window.bridge) window.bridge.disconnect();
+  });
 });
 
-window.addEventListener("beforeunload", () => {
-  if (window.bridge) window.bridge.disconnect();
-});
 
 // useful for debugging desyncs
 function markSelections() {
-  window.bridge.upstreamClient.markSelection();
-  window.bridge.downstreamClient.markSelection();
+  window.bridge.markSelections();
 }
