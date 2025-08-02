@@ -101,8 +101,8 @@ class WSClient {
     this.sendPointer(-64e4, -64e4, host);
   }
 
-  sendAct(seq, act) {
-    this.send({cmd: "act", seq, act});
+  sendAct(seq, act, host=undefined) {
+    this.send({cmd: "act", seq, act, host});
   }
 
   sendSyncRequest() {
@@ -136,6 +136,8 @@ class Bridge {
     };
     this.puzzles = [];
 
+    // ugly hack :(
+    let downstreamSyncDelay = 500;
     this.downstreamClient = new WSClient(roomId + "_" + userInfo.userId, userInfo, (msg) => {
       if (msg.cmd === "pointer" && !this.settings.sendPointer) return;
       if (msg.cmd === "updatepuzzles") this.puzzles = msg.puzzles;
@@ -157,6 +159,7 @@ class Bridge {
         this.upstreamClient.send(msg);
         this.upstreamClient.sendAct(msg.seq, "ds");
         this.upstreamClient.sendAct(msg.seq, "ge");
+        downstreamSyncDelay = 0;
       } else {
         this.upstreamClient.send(msg);
       }
@@ -171,9 +174,11 @@ class Bridge {
         this.downstreamClient.sendAct(msg.seq, "sl:");
       } else if (msg.cmd === "sync") {
         const savedSel = this.downstreamClient.getSelectionStr();
-        this.downstreamClient.send(msg);
-        this.downstreamClient.sendAct(msg.seq, "ds");
-        this.downstreamClient.sendAct(msg.seq, "sl:" + savedSel);
+        setTimeout(() => {
+          this.downstreamClient.send(msg);
+          this.downstreamClient.sendAct(msg.seq, "ds", msg.host);
+          this.downstreamClient.sendAct(msg.seq, "sl:" + savedSel, msg.host);
+        }, downstreamSyncDelay);
       } else if (msg.cmd === "act") {
         // Not grouped, because we're already in a group, and groups can't be nested
         const savedSel = this.downstreamClient.getSelectionStr();
@@ -273,24 +278,33 @@ function randomUserId() {
 }
 
 async function connect(roomId, userInfo) {
+  await disconnect();
   await uploadPuzzle(blankPuzzle, streamtoolPrefix + roomId);
   await uploadPuzzle(blankPuzzle, streamtoolPrefix + roomId + "_" + userInfo.userId);
-  if (window.bridge) window.bridge.disconnect();
   window.bridge = new Bridge(roomId, userInfo);
   const iframe = document.getElementById("sudokupad");
   const key = encodeURIComponent(userInfo.key);
   const name = encodeURIComponent(userInfo.name);
   const color = encodeURIComponent(userInfo.color);
+  const initMsgs = [{cmd: "act", seq: 0, act: "sl:", includeself: false}]
+  const hash = encodeURIComponent(JSON.stringify(initMsgs));
   iframe.src = baseUrl + streamtoolPrefix + roomId + "_" + userInfo.userId +
-    `?setting-nopauseonstart=1&setting-streamtool=1&hostkey=${key}&hostname=${name}&hostcolor=${color}`;
-  document.body.classList.add("connected");
-  document.getElementById("connectButton").value = "Reconnect";
+    `?setting-nopauseonstart=1&setting-streamtool=1&hostkey=${key}&hostname=${name}&hostcolor=${color}#${hash}`;
+}
+
+async function disconnect() {
+  if (window.bridge) window.bridge.disconnect();
+  window.bridge = null;
+  document.body.classList.remove("connected");
 }
 
 document.addEventListener("DOMContentLoaded", async (t) => {
-  document.getElementById("sudokupad").addEventListener("load", (e) => {
+  document.getElementById("sudokupad").addEventListener("load", event => {
     // ask other clients to send us the up-to-date state
-    if (window.bridge) window.bridge.upstreamClient.sendSyncRequest();
+    // if (window.bridge) window.bridge.upstreamClient.sendSyncRequest();
+    document.body.classList.add("connected");
+    document.getElementById("connectButton").value = "Reconnect";
+    event.target.focus();
   });
   try {
     const roomId = localStorage.getItem("roomId");
@@ -333,8 +347,8 @@ document.addEventListener("DOMContentLoaded", async (t) => {
       window.bridge.openSelectDialog(puzzleId);
     }
   });
-  window.addEventListener("beforeunload", () => {
-    if (window.bridge) window.bridge.disconnect();
+  window.addEventListener("beforeunload", async () => {
+    await disconnect();
   });
 });
 
