@@ -283,6 +283,8 @@ async function connect(roomId, userInfo) {
   const color = encodeURIComponent(userInfo.color);
   iframe.src = baseUrl + streamtoolPrefix + roomId + "_" + userInfo.userId +
     `?setting-nopauseonstart=1&setting-streamtool=1&hostkey=${key}&hostname=${name}&hostcolor=${color}`;
+  document.body.classList.add("connected");
+  document.getElementById("connectButton").value = "Reconnect";
 }
 
 document.addEventListener("DOMContentLoaded", async (t) => {
@@ -298,7 +300,6 @@ document.addEventListener("DOMContentLoaded", async (t) => {
     document.getElementById("name").value = userInfo.name;
     document.getElementById("color").value = userInfo.color;
     await connect(roomId, userInfo);
-    document.body.classList.add("connected");
   } catch (e) {
     console.error("Error connecting from local storage");
   }
@@ -327,7 +328,7 @@ document.addEventListener("DOMContentLoaded", async (t) => {
       window.bridge.queuePuzzle(puzzleId);
     }
   });
-  document.getElementById("puzzleSelect").addEventListener("click", async event => {
+  document.getElementById("puzzleSelectButton").addEventListener("click", async event => {
     if (window.bridge) {
       window.bridge.openSelectDialog(puzzleId);
     }

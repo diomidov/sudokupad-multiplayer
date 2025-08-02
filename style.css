@@ -6,6 +6,8 @@ body {
   margin: 0;
   height: 100vh;
   width: 100vw;
+  display: flex;
+  flex-direction: column;
 }
 
 body:not(.connected) .hideUntilConnected {
@@ -30,6 +32,10 @@ body:not(.connected) .hideUntilConnected {
   height: 24px;
   padding: 1px 2px;
   vertical-align: middle;
+}
+
+#topbar #connectButton {
+  width: 72px;
 }
 
 #sudokupad {

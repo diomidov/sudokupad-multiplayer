@@ -20,7 +20,7 @@
           Color:
           <input name="color" id="color" type="color" required value="#ff0000">
         </label>
-        <input type="submit" value="(Re)connect">
+        <input type="submit" id="connectButton" value="Connect">
       </form>
       <div class="hideUntilConnected row">
         <form id="queueForm" action="javascript:void(0);">
@@ -30,7 +30,7 @@
           </label>
           <input type="submit" value="Queue">
         </form>
-        <input type="button" id="puzzleSelect" value="Select Puzzle">
+        <input type="button" id="puzzleSelectButton" value="Select Puzzle">
       </div>
     </div>
     <iframe id="sudokupad" src="https://sudokupad.app/" class="hideUntilConnected"></iframe>
