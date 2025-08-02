@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <script src="index.js"></script>
+    <link href="style.css" rel="stylesheet"></link>
+  </head>
+  <body>
+    <div id="topbar">
+      <form id="loginForm" action="javascript:void(0);">
+        <label>
+          Room:
+          <input name="roomId" id="roomId" required minlength="4" maxlength="32" size="12">
+        </label>
+        <label>
+          Name:
+          <input name="name" id="name" required maxlength="32" size="12">
+        </label>
+        <label>
+          Color:
+          <input name="color" id="color" type="color" required value="#ff0000">
+        </label>
+        <input type=submit value="(Re)connect">
+      </form>
+    </div>
+    <iframe id="sudokupad" src="https://sudokupad.app/"></iframe>
+  </body>
+</html>
